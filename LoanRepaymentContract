@@ -1,0 +1,45 @@
+// Пример смарт-контракта для возмещения долга по заложенному NFT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+contract LoanRepaymentContract {
+    address public borrower;
+    address public lender;
+    IERC721 public nftToken;
+    uint256 public loanAmount;
+    bool public loanRepaid;
+    bool public collateralReturned;
+
+    event LoanRepaid(address borrower, uint256 repayAmount);
+    event CollateralReturned(address borrower);
+
+    constructor(address _nftToken, uint256 _loanAmount) {
+        borrower = msg.sender;
+        lender = tx.origin;
+        nftToken = IERC721(_nftToken);
+        loanAmount = _loanAmount;
+    }
+
+    function repayLoan() external {
+        require(msg.sender == borrower, "Only borrower can repay loan");
+        require(!loanRepaid, "Loan has already been repaid");
+        require(msg.value >= loanAmount, "Insufficient repayment amount");
+
+        loanRepaid = true;
+        payable(lender).transfer(msg.value);
+
+        emit LoanRepaid(borrower, msg.value);
+    }
+
+    function returnCollateral() external {
+        require(msg.sender == lender, "Only lender can return collateral");
+        require(loanRepaid, "Loan has not been repaid yet");
+        require(!collateralReturned, "Collateral has already been returned");
+
+        collateralReturned = true;
+        nftToken.safeTransferFrom(address(this), borrower, nftToken.tokenId());
+
+        emit CollateralReturned(borrower);
+    }
+}
